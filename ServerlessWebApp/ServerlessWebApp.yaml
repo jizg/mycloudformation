@@ -186,6 +186,7 @@ Resources:
       ClientName: WildRydesWeb
       UserPoolId: !Ref UserPool
       GenerateSecret: false
+    DependsOn: UserPool
 
   UpdateConfig:
     Properties:
@@ -265,18 +266,19 @@ Resources:
 
             object = s3.Object(bucket, 'js/config.js')
             config_content = """
-          var _config = {
-              cognito: {
-                  userPoolId: '%s', // e.g. us-east-2_uXboG5pAb
-                  userPoolClientId: '%s', // e.g. 25ddkmj4v6hfsfvruhpfi7n4hv
-                  region: '%s', // e.g. us-east-2
-              },
-              api: {
-                  invokeUrl: 'Base URL of your API including the stage', // e.g. https://rc7nyt4tql.execute-api.us-west-2.amazonaws.com/prod'
-              }
-          };
+                window._config = {
+                    cognito: {
+                        userPoolId: '%s', // e.g. us-east-2_uXboG5pAb-jizg
+                        userPoolClientId: '%s', // e.g. 25ddkmj4v6hfsfvruhpfi7n4hv
+                        region: '%s', // e.g. us-east-2
+                    },
+                    api: {
+                        invokeUrl: 'Base URL of your API including the stage', // e.g. https://rc7nyt4tql.execute-api.us-west-2.amazonaws.com/prod'
+                    }
+                };
               """
             config_content = config_content % (userPoolId, clientId, region)
+            print "config_content: %s" % config_content
             config = s3.Object(bucket,'js/config.js')
             config.put(Body=config_content)
             return cfnresponse.SUCCESS, None
@@ -568,7 +570,7 @@ Resources:
               providerARNs:
                 - !GetAtt UserPool.Arn
               type: "cognito_user_pools"
-
+    DependsOn: UserPool
 
   WildRydesApiDeployment:
     Type: AWS::ApiGateway::Deployment
@@ -595,7 +597,7 @@ Resources:
             - "/*"
 
   UpdateConfig2:
-    Type: "Custom::ConfigFile"
+    Type: "Custom::ConfigFile2"
     Properties:
       ServiceToken: !GetAtt UpdateConfig2Function.Arn
       Bucket: !Ref WebsiteBucket
@@ -607,6 +609,7 @@ Resources:
             - ".execute-api."
             - !Ref AWS::Region
             - ".amazonaws.com/prod"
+    DependsOn: WildRydesApi
 
   UpdateConfig2Role:
     Type: AWS::IAM::Role
@@ -660,6 +663,7 @@ Resources:
             config_object = s3.Object(bucket, 'js/config.js').get()
             config_data = config_object["Body"].read()
             config_data = config_data.replace("Base URL of your API including the stage", properties["InvokeUrl"])
+            print "config_data: %s" % config_data
             config = s3.Object(bucket,'js/config.js')
             config.put(Body=config_data)
             return cfnresponse.SUCCESS, None
